@@ -1,0 +1,7 @@
+{
+  "name": "tfoxy-bower-components",
+  "dependencies": {
+    "angular-incremental-list": "*"
+  },
+  "private": true
+}

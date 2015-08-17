@@ -47,3 +47,9 @@ crashlytics.properties
 crashlytics-build.properties
 
 
+###
+
+b/angular/
+b/**/bower.json
+b/**/.bower.json
+!b/bower.json
