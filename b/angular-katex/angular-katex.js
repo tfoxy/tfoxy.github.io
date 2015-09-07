@@ -1,5 +1,5 @@
 /*!
- * angular-katex v0.7.0
+ * angular-katex v0.8.0
  * https://github.com/tfoxy/angular-katex
  *
  * Copyright 2015 Tomás Fox
@@ -11,20 +11,31 @@
 
   angular.module('katex', [])
       .constant('katex', katex)
-      .factory('katexConfig', katexConfigFactory)
+      .constant('renderMathInElement', getRenderMathInElement())
+      .provider('katexConfig', katexConfigProvider)
       .directive('katex', katexDirective)
-      .directive('katexBind', katexBindDirective)
-      .directive('katexHtml', katexHtmlDirective);
+      .directive('katexBind', katexBindDirective);
+  // These directives are not being used
+  //  .directive('katexHtmlBind', katexHtmlBindDirective)
+  //  .directive('katexHtml', katexHtmlDirective);
 
 
-  katexConfigFactory.$inject = ['katex', '$document'];
+  function getRenderMathInElement() {
+    return typeof renderMathInElement !== 'undefined' ?
+        renderMathInElement :
+        undefined;
+  }
 
-  function katexConfigFactory(katex, $document) {
+
+  katexConfigProvider.$inject = ['katex', 'renderMathInElement'];
+
+  function katexConfigProvider(katex, renderMathInElement) {
     var service = {
+      $get: function() {return service;},
       defaultOptions: {},
+      errorElement: '<span class="katex-error"></span>',
       errorHandler: function(err, expr, element) {
-        var span = $document[0].createElement('span');
-        span.className = 'katex-error';
+        var span = angular.element(service.errorElement);
         span.textContent = err;
         element.children().remove();
         element.append(span);
@@ -35,6 +46,14 @@
           katex.render(expr || '', element[0], options);
         } catch (err) {
           errorHandler(err, expr, element);
+        }
+      },
+      autoRender: function(element, elementOptions, errorHandler) {
+        try {
+          var options = elementOptions || service.defaultOptions;
+          renderMathInElement(element[0], options);
+        } catch (err) {
+          errorHandler(err, null, element);
         }
       }
     };
@@ -49,10 +68,14 @@
     return {
       restrict: 'AE',
       compile: function(element, attrs) {
-        var expr = attrs.katex || element.text();
         var options = getOptions($rootScope, attrs);
         var errorHandler = getErrorHandler($rootScope, attrs, katexConfig);
-        katexConfig.render(element, expr, options, errorHandler);
+        if ('katexAutoRender' in attrs) {
+          katexConfig.autoRender(element, options, errorHandler);
+        } else {
+          var expr = attrs.katex || element.text();
+          katexConfig.render(element, expr, options, errorHandler);
+        }
       }
     };
   }
@@ -64,12 +87,41 @@
     return {
       restrict: 'A',
       link: function(scope, element, attrs) {
-        var model = attrs.katexBind;
         var errorHandler = getErrorHandler(scope, attrs, katexConfig);
 
-        scope.$watch(model, function(expr) {
+        scope.$watch(attrs.katexBind, function(expr) {
           var options = getOptions(scope, attrs);
-          katexConfig.render(element, expr, options, errorHandler);
+          if ('katexAutoRender' in attrs) {
+            element.text(expr);
+            katexConfig.autoRender(element, options, errorHandler);
+          } else {
+            katexConfig.render(element, expr, options, errorHandler);
+          }
+        });
+      }
+    };
+  }
+
+
+  /*
+  katexHtmlBindDirective.$inject = ['katexConfig'];
+
+  function katexHtmlBindDirective(katexConfig) {
+    return {
+      restrict: 'A',
+      link: function(scope, element, attrs) {
+        var errorHandler = getErrorHandler(scope, attrs, katexConfig);
+
+        scope.$watch(attrs.katexHtmlBind, function(expr) {
+          var options = getOptions(scope, attrs);
+          if ('katexAutoRender' in attrs) {
+            element.html(expr);
+            katexConfig.autoRender(element, options, errorHandler);
+          } else {
+            var exprElement = angular.element('<div>' + expr + '</div>');
+            var htmlExpr = exprElement.html();
+            katexConfig.render(element, htmlExpr, options, errorHandler);
+          }
         });
       }
     };
@@ -82,16 +134,21 @@
     return {
       restrict: 'AE',
       compile: function(element, attrs) {
-        var exprElement = attrs.katexHtml ?
-            angular.element('<div>' + attrs.katexHtml + '</div>') :
-            element;
         var options = getOptions($rootScope, attrs);
         var errorHandler = getErrorHandler($rootScope, attrs, katexConfig);
-        katexConfig.render(element, exprElement.html(), options, errorHandler);
+        if ('katexAutoRender' in attrs) {
+          katexConfig.autoRender(element, options, errorHandler);
+        } else {
+          var exprElement = attrs.katexHtml ?
+              angular.element('<div>' + attrs.katexHtml + '</div>') :
+              element;
+          var expr = exprElement.html();
+          katexConfig.render(element, expr, options, errorHandler);
+        }
       }
     };
   }
-
+  */
 
   function getOptions(scope, attrs) {
     var katexOptions = attrs.katexOptions;
@@ -100,11 +157,9 @@
 
 
   function getErrorHandler(scope, attrs, katexConfig) {
-    var katexOnError = attrs.katexOnError;
-
-    if (katexOnError) {
+    if ('katexOnError' in attrs) {
       return function katexOnErrorFn(err, expr, element) {
-        scope.$eval(katexOnError, {
+        scope.$eval(attrs.katexOnError, {
           $err: err,
           $expr: expr,
           $setText: function(text) {
@@ -112,8 +167,8 @@
           }
         });
       };
+    } else {
+      return katexConfig.errorHandler;
     }
-
-    return katexConfig.errorHandler;
   }
 })();
