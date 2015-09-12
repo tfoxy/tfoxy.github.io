@@ -1,9 +1,9 @@
 /*!
- * angular-incremental-list v0.3.0
- * https://github.com/tfoxy/angular-incremental-list
- *
- * Copyright 2015 Tomás Fox
- * Released under the MIT license
+ * angular-incremental-list
+ * @see https://github.com/tfoxy/angular-incremental-list
+ * @version 0.4.0
+ * @author Tomás Fox <tomas.c.fox@gmail.com>
+ * @license MIT
  */
 
 (function() {
@@ -20,20 +20,20 @@
       .directive('ilNewItem', ilNewItemDirective)
       .directive('ilIncreaseOn', ilIncreaseOnDirective)
       .directive('ilDecreaseOn', ilDecreaseOnDirective)
-      .directive('ilIncrementOn', ilIncrementOnDirective)
-      .directive('ilDecrementOn', ilDecrementOnDirective)
       .directive('ilListModel', ilListModelDirective)
       .directive('ilMinLength', ilMinLengthDirective)
-      .directive('ilMaxLength', ilMaxLengthDirective);
+      .directive('ilMaxLength', ilMaxLengthDirective)
+      .directive('ilEnableHasFocus', ilEnableHasFocusDirective)
+      .directive('ilDecreaseMiddle', ilDecreaseMiddleDirective);
 
-  //////////
+  ////////////////
 
   function ilListDirective() {
     return {
       restrict: 'A',
       priority: IL_LIST_PRIORITY,
       controller: ilListController,
-      link: function(scope, element, attrs, ctrl) {
+      link: function postLink(scope, element, attrs, ctrl) {
         ctrl.postInitialize();
       }
     };
@@ -44,7 +44,7 @@
       restrict: 'A',
       require: 'ilList',
       link: {
-        pre: function(scope, element, attrs, ctrl) {
+        pre: function preLink(scope, element, attrs, ctrl) {
           var index = scope.$index;
           if (typeof index !== 'number') {
             throw new Error('scope.$index is not a number. Got: ' + index);
@@ -60,7 +60,7 @@
     return {
       restrict: 'A',
       require: ['^ilList', 'ngModel'],
-      link: function(scope, element, attrs, ctrl) {
+      link: function postLink(scope, element, attrs, ctrl) {
         var ilListCtrl = ctrl[0];
         var ngModelCtrl = ctrl[1];
 
@@ -68,13 +68,15 @@
             scope.$eval(attrs.ilItemModel) :
             scope;
 
-        var listener = function() {
+        var listener = function viewChangeListener() {
           ilListCtrl.listItemChanged(selectedScope.$index, ngModelCtrl);
         };
 
         ngModelCtrl.$viewChangeListeners.push(listener);
 
         pushToScopeArray(selectedScope.$$ilListModels, ngModelCtrl, scope);
+
+        ilListCtrl.listenToEvents(selectedScope, element, listener);
       }
     };
   }
@@ -84,9 +86,9 @@
       restrict: 'A',
       require: 'ilList',
       priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
-        ctrl.createItem = function(lastItemScope) {
-          return lastItemScope.$eval(attrs.ilNewItem, ctrl.localScope);
+      link: function postLink(scope, element, attrs, ctrl) {
+        ctrl.createItem = function ilNewItemEval() {
+          return ctrl.evalWithCurrentScope(attrs.ilNewItem);
         };
       }
     };
@@ -97,25 +99,9 @@
       restrict: 'A',
       require: 'ilList',
       priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
-        ctrl.mustIncrement = function(lastItemScope) {
-          return lastItemScope.$eval(attrs.ilIncreaseOn, ctrl.localScope);
-        };
-      }
-    };
-  }
-
-  /**
-   * @deprecated since version 0.2.0
-   */
-  function ilIncrementOnDirective() {
-    return {
-      restrict: 'A',
-      require: 'ilList',
-      priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
-        ctrl.mustIncrement = function(lastItemScope) {
-          return lastItemScope.$eval(attrs.ilIncrementOn);
+      link: function postLink(scope, element, attrs, ctrl) {
+        ctrl.mustIncrement = function ilIncreaseOnEval() {
+          return ctrl.evalWithCurrentScope(attrs.ilIncreaseOn);
         };
       }
     };
@@ -126,25 +112,9 @@
       restrict: 'A',
       require: 'ilList',
       priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
-        ctrl.mustDecrement = function(itemScope) {
-          return itemScope.$eval(attrs.ilDecreaseOn, ctrl.localScope);
-        };
-      }
-    };
-  }
-
-  /**
-   * @deprecated since version 0.2.0
-   */
-  function ilDecrementOnDirective() {
-    return {
-      restrict: 'A',
-      require: 'ilList',
-      priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
-        ctrl.mustDecrement = function(itemScope) {
-          return itemScope.$eval(attrs.ilDecrementOn, ctrl.localScope);
+      link: function postLink(scope, element, attrs, ctrl) {
+        ctrl.mustDecrement = function ilDecreaseOnEval() {
+          return ctrl.evalWithCurrentScope(attrs.ilDecreaseOn);
         };
       }
     };
@@ -155,11 +125,11 @@
       restrict: 'A',
       require: ['^^ilList', 'ilList'],
       priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
+      link: function postLink(scope, element, attrs, ctrl) {
         var parentCtrl = ctrl[0];
         var elementCtrl = ctrl[1];
 
-        elementCtrl.notifyParentList = function(scope, changed) {
+        elementCtrl.notifyParentList = function notifyParentList(scope, changed) {
           var parentScope = attrs.ilListModel ?
               scope.$eval(attrs.ilListModel) :
               scope.$parent;
@@ -176,7 +146,7 @@
       restrict: 'A',
       require: 'ilList',
       priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
+      link: function postLink(scope, element, attrs, ctrl) {
         var num = parseInt(attrs.ilMinLength);
         ctrl.minLength = num > 0 ? num : 0;
       }
@@ -188,37 +158,94 @@
       restrict: 'A',
       require: 'ilList',
       priority: MAIN_PRIORITY,
-      link: function(scope, element, attrs, ctrl) {
+      link: function postLink(scope, element, attrs, ctrl) {
         var num = parseInt(attrs.ilMaxLength);
         ctrl.maxLength = num > 0 ? num : 0;
       }
     };
   }
 
-  ilListController.$inject = ['$scope', '$attrs'];
+  ilEnableHasFocusDirective.$inject = ['$timeout'];
 
-  function ilListController($scope, $attrs) {
+  function ilEnableHasFocusDirective($timeout) {
+    return {
+      restrict: 'A',
+      require: 'ilList',
+      priority: MAIN_PRIORITY,
+      link: postLink
+    };
+
+    function postLink(scope, element, attrs, ctrl) {
+      ctrl.listenToEvents = function listenForHasFocus(inputScope, inputElement, listener) {
+        inputElement.on('focus', function inputFocus() {
+          ctrl.cancelBlurTimeout();
+          ctrl.focusIndex = inputScope.$index;
+          if (ctrl.blurListener) {
+            inputScope.$apply(ctrl.blurListener);
+            ctrl.blurListener = null;
+          }
+          inputScope.$apply(listener);
+        });
+
+        inputElement.on('blur', function inputBlur() {
+          ctrl.blurListener = listener;
+          ctrl.blurTimeout = $timeout(function blurTimeout() {
+            ctrl.blurTimeout = null;
+            ctrl.focusIndex = -1;
+            ctrl.blurListener = null;
+            listener();
+          });
+        });
+      };
+    }
+  }
+
+  function ilDecreaseMiddleDirective() {
+    return {
+      restrict: 'A',
+      require: 'ilList',
+      priority: MAIN_PRIORITY,
+      link: function postLink(scope, element, attrs, ctrl) {
+        ctrl.enableMiddleDecrease();
+      }
+    };
+  }
+
+
+  ilListController.$inject = ['$scope', '$attrs', '$timeout'];
+
+  function ilListController($scope, $attrs, $timeout) {
     /* jshint validthis: true */
     var vm = this;
 
-    var localScope = {
-      $ilList: {
-        emptyModel: listInputsHelper(false, true),
-        emptyView: listInputsHelper(false, false),
-        fullModel: listInputsHelper(true, true),
-        fullView: listInputsHelper(true, false),
-        modelExists: modelExists,
-        viewExists: viewExists
-      }
+    var $ilList = {
+      emptyModel: listInputsHelper(false, true),
+      emptyView: listInputsHelper(false, false),
+      fullModel: listInputsHelper(true, true),
+      fullView: listInputsHelper(true, false),
+      hasFocus: hasFocus,
+      modelExists: modelExists,
+      viewExists: viewExists
     };
 
+    var localScope = {
+      $ilList: $ilList
+    };
+
+    vm.blurTimeout = null;
+    vm.cancelBlurTimeout = cancelBlurTimeout;
+    vm.checkDecreaseConditions = angular.noop;
     vm.createItem = createItem;
+    vm.enableMiddleDecrease = enableMiddleDecrease;
+    vm.evalWithCurrentScope = evalWithCurrentScope;
+    vm.focusIndex = -1;
     vm.list = $scope.$eval($attrs.ilList);
+    vm.listenToEvents = angular.noop;
     vm.listItemChanged = listItemChanged;
     vm.localScope = localScope;
     vm.maxLength = 9007199254740991;
     vm.minLength = 1;
-    vm.mustDecrement = localScope.$ilList.emptyView;
+    vm.mustDecrement = $ilList.emptyView;
     vm.mustIncrement = modelExists;
     vm.notifyParentList = angular.noop;
     vm.postInitialize = postInitialize;
@@ -226,7 +253,7 @@
 
     initialize();
 
-    //////////
+    ////////////////
 
     function initialize() {
       var list = vm.list;
@@ -236,6 +263,15 @@
       }
     }
 
+
+    function cancelBlurTimeout() {
+      if (vm.blurTimeout) {
+        $timeout.cancel(vm.blurTimeout);
+        vm.blurTimeout = null;
+      }
+    }
+
+
     function listItemChanged(index, changed) {
       if (typeof index !== 'number') {
         throw new Error('scope.$index is not a number. Got: ' + index);
@@ -244,18 +280,32 @@
       var length = vm.list.length;
       var scope = getScope(index);
 
-      vm.localScope.$ilList.changed = changed;
+      $ilList.currentScope = scope;
+      $ilList.changed = changed;
 
       if (index === length - 1 && length < vm.maxLength) {
-        lastItemChanged(scope, localScope);
+        lastItemChanged();
       } else if (index === length - 2 && length > vm.minLength) {
-        checkDecrementConditions(scope, localScope);
+        checkLastItemsDecreaseConditions();
+      } else if (length > vm.minLength) {
+        vm.checkDecreaseConditions();
       }
 
-      delete vm.localScope.$ilList.changed;
+      delete $ilList.currentScope;
+      delete $ilList.changed;
 
       vm.notifyParentList(scope, changed);
     }
+
+
+    function enableMiddleDecrease() {
+      vm.checkDecreaseConditions = checkDecreaseConditions;
+
+      function checkDecreaseConditions() {
+        removeEmptyItems($ilList.currentScope);
+      }
+    }
+
 
     function getScope(index) {
       if (index >= vm.list.length || index < 0) {
@@ -264,27 +314,32 @@
       return vm.list[index][SCOPE_PROP_NAME];
     }
 
+
     function prevScope(scope) {
       return getScope(scope.$index - 1);
     }
+
 
     function nextScope(scope) {
       return getScope(scope.$index + 1);
     }
 
-    function lastItemChanged(scope) {
-      if (vm.mustIncrement(scope)) {
-        vm.list.push(vm.createItem(scope));
-      } else if (!scope.$first) {
-        checkDecrementConditions(scope);
+
+    function lastItemChanged() {
+      if (vm.mustIncrement()) {
+        vm.list.push(vm.createItem());
+      } else if (!$ilList.currentScope.$first) {
+        checkLastItemsDecreaseConditions();
       }
     }
 
-    function checkDecrementConditions(scope) {
+
+    function checkLastItemsDecreaseConditions() {
+      var scope = $ilList.currentScope;
       var otherScope = scope.$last ? prevScope(scope) : nextScope(scope);
 
-      if (vm.mustDecrement(scope) &&
-          vm.mustDecrement(otherScope)) {
+      if (vm.mustDecrement() &&
+          mustDecrementWithScope(otherScope)) {
         if (!scope.$last) {
           vm.list.pop();
         }
@@ -293,6 +348,13 @@
       }
     }
 
+
+    function mustDecrementWithScope(scope) {
+      $ilList.currentScope = scope;
+      return vm.mustDecrement();
+    }
+
+
     function removeEmptyItems(scope) {
       var minFrom = vm.minLength - 1;
       var auxScope = scope;
@@ -300,7 +362,7 @@
       from = to = vm.list.length - 2;
 
       for (; from >= minFrom; --from, auxScope = prevScope(auxScope)) {
-        if (!vm.mustDecrement(auxScope)) {
+        if (!mustDecrementWithScope(auxScope)) {
           break;
         }
       }
@@ -308,14 +370,27 @@
       vm.list.splice(from + 1, to - from);
     }
 
+
+    function evalWithCurrentScope(expression) {
+      return $ilList.currentScope.$eval(expression, localScope);
+    }
+
+
     function createItem() {
       return {};
     }
+
+
+    function hasFocus() {
+      return vm.focusIndex === $ilList.currentScope.$index;
+    }
+
 
     function postInitialize() {
       var length = vm.list.length;
 
       var scope = getScope(length - 1) || $scope;
+
 
       if (length < vm.minLength) {
         var itemPusher = new ItemPusher(vm.minLength - length, vm, scopeCreatedAt);
@@ -325,6 +400,7 @@
         vm.list.splice(vm.maxLength, length - vm.maxLength);
       }
     }
+
 
     function scopeCreatedAt(index, scope) {
       var item = vm.list[index];
@@ -342,41 +418,49 @@
       });
     }
 
+
     function listInputsHelper(onFull, useModel) {
       var valueProp = useModel ? '$modelValue' : '$viewValue';
 
-      var fn = function(scope) {
+      return listInputsHelperFn;
+
+      function listInputsHelperFn(paramScope) {
+        var scope = paramScope || $ilList.currentScope;
         var isEmpty = scope.$$ilListModels.every(function(ngModelCtrl) {
           return onFull ^ !valueExists(ngModelCtrl[valueProp]);
         });
         if (isEmpty) {
           return scope.$$ilListChildCtrls.every(function(ctrl) {
             return ctrl.list.every(function(item) {
-              return fn(item[SCOPE_PROP_NAME]);
+              return listInputsHelperFn(item[SCOPE_PROP_NAME]);
             });
           });
         } else {
           return false;
         }
-      };
-
-      return fn;
+      }
     }
+
 
     function modelExists() {
-      var value = vm.localScope.$ilList.changed.$modelValue;
+      var value = $ilList.changed.$modelValue;
       return valueExists(value);
     }
+
 
     function valueExists(value) {
       return value || value === 0;
     }
 
+
     function viewExists() {
-      var value = vm.localScope.$ilList.changed.$viewValue;
+      var value = $ilList.changed.$viewValue;
       return valueExists(value);
     }
   }
+
+
+  // ItemPusher class
 
   function ItemPusher(times, vm, scopeCreatedAt) {
     this._countdown = times;
@@ -384,17 +468,22 @@
     this._scopeCreatedAt = scopeCreatedAt;
   }
 
-  ItemPusher.prototype.pushItem = function(scope) {
-    this._vm.list.push(this._vm.createItem(scope));
+  ItemPusher.prototype.pushItem = function pushItem(scope) {
+    this._vm.localScope.$ilList.currentScope = scope;
+    this._vm.list.push(this._vm.createItem());
     if (--this._countdown <= 0) {
       this._vm.scopeCreatedAt = this._scopeCreatedAt;
     }
+    delete this._vm.localScope.$ilList.currentScope;
   };
 
-  ItemPusher.prototype.scopeCreatedAt = function(index, scope) {
+  ItemPusher.prototype.scopeCreatedAt = function scopeCreatedAt(index, scope) {
     this._scopeCreatedAt(index, scope);
     this.pushItem(scope);
   };
+
+
+  // Helper functions
 
   function removeElementFromArray(array, element) {
     var index = array.indexOf(element);
