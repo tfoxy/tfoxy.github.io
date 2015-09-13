@@ -7,7 +7,9 @@
 
     "na-hermite-interpolation": "*",
     "bignumber.js": "*",
-    "eventemitter2": "*"
+    "eventemitter2": "*",
+
+    "na-error-propagation": "*"
   },
   "private": true
 }

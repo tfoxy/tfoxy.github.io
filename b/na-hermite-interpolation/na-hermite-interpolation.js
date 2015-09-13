@@ -1,10 +1,12 @@
 /*!
- * na-hermite-interpolation v0.4.0
+ * na-hermite-interpolation v0.4.2
  * https://github.com/tfoxy/na-hermite-interpolation
  *
  * Copyright 2015 Tomás Fox
  * Released under the MIT license
  */
+
+/* global define */
 
 /**
  * Numbers must have the following methods for the divided differences:
@@ -13,7 +15,7 @@
  * plus, times, neg
  * For differentials of order 2 or more, division must support javascript numbers
  */
-(function (root, factory) {
+(function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
     define([], factory);
@@ -269,11 +271,22 @@
 
   }
 
-  var EventEmitter;
+  var EventEmitter = {
+    prototype: {
+      on: function() {
+        throw new Error('An EventEmitter library needs to be set using' +
+            ' HermiteInterpolation.setEventEmitter(EventEmitter) method.' +
+            ' The /on/ function cannot be used otherwise');
+      },
+      emit: function() {}
+    }
+  };
   if (typeof module === 'object' && module.exports) {
-    EventEmitter = require('events').EventEmitter;
-  } else {
-    EventEmitter = {prototype: {on: function(){}}};
+    try {
+      EventEmitter = require('events').EventEmitter;
+    } catch (err) {
+      // noop
+    }
   }
   HermiteInterpolation.setEventEmitter(EventEmitter);
 
