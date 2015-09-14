@@ -1,7 +1,7 @@
 /*!
  * na-error-propagation
  * @see https://github.com/tfoxy/na-error-propagation
- * @version 0.1.1
+ * @version 0.1.2
  * @author Tomás Fox <tomas.c.fox@gmail.com>
  * @license MIT
  */
@@ -74,9 +74,18 @@
     ErrorPropagation.prototype.constructor = ErrorPropagation;
 
     ErrorPropagation.prototype.calculate = calculate;
+    ErrorPropagation.prototype._calculate = _calculate;
   }
 
   function calculate(expression, variables) {
+    try {
+      return this._calculate(expression, variables);
+    } catch (err) {
+      this.emit('error', err);
+    }
+  }
+
+  function _calculate(expression, variables) {
     this.emit('input', expression, variables);
 
     if (typeof expression !== 'string') {
