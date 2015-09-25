@@ -1,7 +1,7 @@
 /*!
  * na-error-propagation
  * @see https://github.com/tfoxy/na-error-propagation
- * @version 0.1.2
+ * @version 0.1.3
  * @author Tomás Fox <tomas.c.fox@gmail.com>
  * @license MIT
  */
@@ -207,7 +207,11 @@
               ' HermiteInterpolation.setEventEmitter(EventEmitter) method.' +
               ' The /on/ function cannot be used otherwise');
         },
-        emit: function() {}
+        emit: function(eventName, param) {
+          if (eventName === 'error') {
+            throw param;
+          }
+        }
       }
     };
 

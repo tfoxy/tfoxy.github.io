@@ -9,7 +9,9 @@
     "bignumber.js": "*",
     "eventemitter2": "*",
 
-    "na-error-propagation": "*"
+    "na-error-propagation": "*",
+
+    "na-gaussian-elimination": "*"
   },
   "private": true
 }
