@@ -1,7 +1,7 @@
 /*!
  * na-gaussian-elimination
  * @see https://github.com/tfoxy/na-gaussian-elimination
- * @version 0.0.1
+ * @version 0.0.3
  * @author Tomás Fox <tomas.c.fox@gmail.com>
  * @license MIT
  */
@@ -51,37 +51,11 @@
   function GaussianElimination(options) {
     options = options || {};
 
-    var pivotingType = getOption('pivoting', options);
-    this._pivotingType = pivotingType;
-    switch (pivotingType) {
-      case 'partial':
-        this._pivoting = partialPivoting.bind(this);
-        break;
-      case 'scaled':
-        this._pivoting = scaledPivoting.bind(this);
-        break;
-      case 'none':
-        this._pivoting = nonePivoting.bind(this);
-        break;
-      case 'avoid zero':
-        this._pivoting = avoidZeroPivoting.bind(this);
-        break;
-      case 'complete':
-        this._pivoting = completePivoting.bind(this);
-        break;
-      default:
-        throw new OptionsError('Unknown pivoting method: ' + options.pivoting);
-    }
+    this.setPivoting(getOption('pivoting', options));
 
-    var lu = getOption('lu', options);
-    if (lu) {
-      this._getLowerMatrixValue = valueFn;
-    } else {
-      var zero = getOption('zero', options);
-      this._getLowerMatrixValue = function getZero() {
-        return zero;
-      };
-    }
+    this.setLuFlag(getOption('lu', options));
+
+    this.setZero(getOption('zero', options));
   }
 
   function setEventEmitter(EventEmitter) {
@@ -89,8 +63,14 @@
     GaussianElimination.prototype.constructor = GaussianElimination;
 
     GaussianElimination.prototype.solve = solve;
+    GaussianElimination.prototype._solve = _solve;
     GaussianElimination.prototype.forwardElimination = forwardElimination;
+    GaussianElimination.prototype._forwardElimination = _forwardElimination;
     GaussianElimination.prototype.backSubstitution = backSubstitution;
+    GaussianElimination.prototype._backSubstitution = _backSubstitution;
+    GaussianElimination.prototype.setPivoting = setPivoting;
+    GaussianElimination.prototype.setLuFlag = setLuFlag;
+    GaussianElimination.prototype.setZero = setZero;
   }
 
   function getEventEmitter() {
@@ -145,13 +125,61 @@
     return value;
   }
 
-  function solve(matrix, result) {
+  function setPivoting(pivotingType) {
+    switch (pivotingType) {
+      case 'partial':
+        this._pivoting = partialPivoting.bind(this);
+        break;
+      case 'scaled':
+        this._pivoting = scaledPivoting.bind(this);
+        break;
+      case 'none':
+        this._pivoting = nonePivoting.bind(this);
+        break;
+      case 'avoid zero':
+        this._pivoting = avoidZeroPivoting.bind(this);
+        break;
+      case 'complete':
+        this._pivoting = completePivoting.bind(this);
+        break;
+      default:
+        throw new OptionsError('Unknown pivoting method: ' + pivotingType);
+    }
+    this._pivotingType = pivotingType;
+  }
 
+  function setLuFlag(luFlag) {
+    if (luFlag) {
+      this._getLowerMatrixValue = valueFn;
+    } else {
+      this._getLowerMatrixValue = getZero.bind(this);
+    }
+  }
+
+  function getZero() {
+    return this._zero;
+  }
+
+  function setZero(zero) {
+    this._zero = zero;
+  }
+
+
+  function solve(matrix, result) {
+    try {
+      return this._solve(matrix, result);
+    } catch (err) {
+      this.emit('error', err);
+      return null;
+    }
+  }
+
+  function _solve(matrix, result) {
     this.emit('solveStart', {matrix: matrix, result: result});
 
-    var system = this.forwardElimination(matrix, result);
+    var system = this._forwardElimination(matrix, result);
 
-    var solutionSystem = this.backSubstitution(matrix, result);
+    var solutionSystem = this._backSubstitution(matrix, result);
 
     system.transformationVector.forEach(function(transf, i) {
       swapArrayPlaces(result, i, transf);
@@ -165,6 +193,15 @@
 
 
   function forwardElimination(matrix, result) {
+    try {
+      return this._forwardElimination(matrix, result);
+    } catch (err) {
+      this.emit('error', err);
+      return null;
+    }
+  }
+
+  function _forwardElimination(matrix, result) {
     var m = matrix.length;
     var n = matrix[0].length;
     var end = Math.min(m, n);
@@ -241,6 +278,15 @@
 
 
   function backSubstitution(matrix, result) {
+    try {
+      return this._backSubstitution(matrix, result);
+    } catch (err) {
+      this.emit('error', err);
+      return null;
+    }
+  }
+
+  function _backSubstitution(matrix, result) {
     var rowLength = matrix[0].length;
     var m = matrix.length;
     var n = m - Math.max(m - rowLength, 0);
@@ -283,9 +329,8 @@
           if (resultValue.isZero()) {
             result[i] = resultValue;
           } else {
-            this.emit('error', new SolutionError('There is no solution for the system' +
-                ' (a number multiplied by zero cannot be non-zero)'));
-            return system;
+            throw new SolutionError('There is no solution for the system' +
+                ' (a number multiplied by zero cannot be non-zero)');
           }
         } else {
           result[i] = resultValue = resultValue.div(rowValue);
@@ -308,16 +353,14 @@
           if (resultValue.isZero()) {
             continue;
           } else {
-            this.emit('error', new SolutionError('There is no solution for the system' +
-                ' (a number multiplied by zero cannot be non-zero)'));
-            return system;
+            throw new SolutionError('There is no solution for the system' +
+                ' (a number multiplied by zero cannot be non-zero)');
           }
         }
 
         var solutionValue = resultValue.div(rowValue);
         if (solutionValue.cmp(lastSolution) !== 0) {
-          this.emit('error', new SolutionError('There is no solution for the system'));
-          return system;
+          throw new SolutionError('There is no solution for the system');
         }
       }
 
@@ -353,7 +396,7 @@
   function nonePivoting(system, i) {
     var pivot = system.matrix[i][i];
     if (pivot.isZero()) {
-      this.emit('error', new SolutionError('Pivot ' + i + ' is zero'));
+      throw new SolutionError('Pivot ' + i + ' is zero');
     }
   }
 
