@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>CSS</title>
+    <meta name="viewport" content="width=device-width">
+    <link rel="stylesheet" href="index.css">
+  </head>
+  <body>
+    <h2>Crop landscape</h2>
+    <h3>Original (with height: 200px)</h3>
+      <img src="landscape.jpg" style="height: 200px;">
+    <h3>Cropped</h3>
+    <div class="crop-landscape-parent" style="height: 200px; width: 250px;">
+      <img class="crop-landscape" src="landscape.jpg">
+    </div>
+    <h2>Overlay</h2>
+    <div class="overlay-parent" style="height: 200px;">
+      <div class="overlay" style="text-align: center">
+        <button>Button above image (on top)</button>
+      </div>
+      <img src="landscape.jpg" style="height: 100%;">
+    </div>
+    <h2>Overlay and center</h2>
+    <div class="overlay-parent" style="height: 200px;">
+      <div class="overlay">
+        <div class="center-element-parent">
+          <div class="center-element">
+            <button>Button above image (on center)</button>
+          </div>
+        </div>
+      </div>
+      <img src="landscape.jpg" style="height: 100%;">
+    </div>
+    <h2>Lighten button on hover</h2>
+    <button class="ligthen-on-hover">Default button</button>
+    <button class="ligthen-on-hover" style="background: green;">Green button</button>
+    <button class="ligthen-on-hover" style="background: red;">Red button</button>
+    <button class="ligthen-on-hover" style="background: black;">Black button</button>
+  </body>
+</html>
