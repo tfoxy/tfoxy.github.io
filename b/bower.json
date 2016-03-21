@@ -11,7 +11,10 @@
 
     "na-error-propagation": "*",
 
-    "na-gaussian-elimination": "*"
+    "na-gaussian-elimination": "*",
+
+    "mailcheck": "*",
+    "angular.mailcheck": "*"
   },
   "private": true
 }
