@@ -47,22 +47,25 @@ crashlytics.properties
 crashlytics-build.properties
 
 
+### b folder components
+
+b/angular/
+b/bignumber.js/*
+!b/bignumber.js/bignumber.js
+!b/bignumber.js/bignumber.js.map
+!b/bignumber.js/bignumber.min.js
+b/eventemitter2/*
+!b/eventemitter2/lib/
+b/mailcheck/*
+!b/mailcheck/src/
+
+
 ### b folder
 
+b/**/*.coffee
 b/**/bower.json
 b/**/.bower.json
 !b/bower.json
 b/**/.gitignore
 !b/**/LICENSE
 !b/**/LICENCE
-
-
-### b folder components
-
-b/angular/
-b/bignumber.js/**/*
-!b/bignumber.js/bignumber.js
-!b/bignumber.js/bignumber.js.map
-!b/bignumber.js/bignumber.min.js
-b/eventemitter2/**/*
-!b/eventemitter2/lib/
